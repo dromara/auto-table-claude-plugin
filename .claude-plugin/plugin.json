@@ -1,0 +1,12 @@
+{
+  "name": "autotable",
+  "version": "1.0.0",
+  "description": "AI coding assistant skill for AutoTable - a JDBC-based automatic database table structure maintenance framework for Java. Covers 29 annotations, 9 database dialects, lifecycle hooks, SPI extensions, SQL audit, data initialization, and multi-datasource.",
+  "author": {
+    "name": "tangzc",
+    "url": "https://gitee.com/tangzc"
+  },
+  "homepage": "https://autotable.tangzc.com",
+  "repository": "https://github.com/dromara/auto-table",
+  "license": "Apache-2.0"
+}
