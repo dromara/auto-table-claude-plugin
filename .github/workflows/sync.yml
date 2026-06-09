@@ -1,0 +1,78 @@
+name: Sync from AutoTable
+
+on:
+  schedule:
+    # 每天 UTC 06:00（北京时间 14:00）检查一次
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force sync even if no changes'
+        type: boolean
+        default: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout plugin repo
+        uses: actions/checkout@v4
+        with:
+          path: plugin-repo
+
+      - name: Clone AutoTable source repo
+        uses: actions/checkout@v4
+        with:
+          repository: dromara/auto-table
+          path: source-repo
+          ref: main
+
+      - name: Check for changes
+        id: diff
+        run: |
+          # Compare skill files between source and plugin
+          if diff -r source-repo/skills/autotable-usage/ plugin-repo/skills/autotable-usage/ > /dev/null 2>&1; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changes detected:"
+            diff -r source-repo/skills/autotable-usage/ plugin-repo/skills/autotable-usage/ || true
+          fi
+
+      - name: Sync skill files
+        if: steps.diff.outputs.changed == 'true' || inputs.force == true
+        run: |
+          # Remove old skill files
+          rm -rf plugin-repo/skills/autotable-usage/
+
+          # Copy fresh skill files from source
+          cp -r source-repo/skills/autotable-usage/ plugin-repo/skills/autotable-usage/
+
+          # Get source commit info for the message
+          cd source-repo
+          SOURCE_SHA=$(git rev-parse --short HEAD)
+          SOURCE_MSG=$(git log -1 --format="%s")
+          echo "SOURCE_SHA=$SOURCE_SHA" >> $GITHUB_ENV
+          echo "SOURCE_MSG=$SOURCE_MSG" >> $GITHUB_ENV
+
+      - name: Commit and push
+        if: steps.diff.outputs.changed == 'true' || inputs.force == true
+        run: |
+          cd plugin-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No actual changes to commit"
+          else
+            git commit -m "sync: update from dromara/auto-table@${SOURCE_SHA}
+
+            Source commit: ${SOURCE_SHA} - ${SOURCE_MSG}"
+            git push
+            echo "✅ Synced and pushed successfully"
+          fi
